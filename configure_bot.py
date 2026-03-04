@@ -50,12 +50,12 @@ def api_call(method: str, payload: dict) -> dict:
   return data
 
 
-def get_web_app_url() -> str:
-  if not PUBLIC_URL:
+def get_web_app_url(public_url: str) -> str:
+  if not public_url:
     raise RuntimeError("ARK_LAB_PUBLIC_URL is empty. Deploy first and put a public https URL into .env")
-  if not PUBLIC_URL.startswith("https://"):
+  if not public_url.startswith("https://"):
     raise RuntimeError("ARK_LAB_PUBLIC_URL must start with https:// for Telegram Mini Apps")
-  return urljoin(f"{PUBLIC_URL}/", "mini-app/")
+  return urljoin(f"{public_url.rstrip('/')}/", "mini-app/")
 
 
 def configure_menu(web_app_url: str) -> None:
@@ -85,15 +85,15 @@ def configure_commands() -> None:
   )
 
 
-def send_launch_message(web_app_url: str) -> None:
-  if not CHAT_ID:
+def send_launch_message(web_app_url: str, chat_id: str) -> None:
+  if not chat_id:
     print("ARK_LAB_TELEGRAM_CHAT_ID is empty; skipping launch message")
     return
 
   api_call(
     "sendMessage",
     {
-      "chat_id": CHAT_ID,
+      "chat_id": chat_id,
       "text": "ARK LAB mini app is ready. Open it from the button below or from the bot menu.",
       "reply_markup": {
         "inline_keyboard": [
@@ -121,13 +121,15 @@ def print_summary(web_app_url: str) -> None:
 def main() -> None:
   parser = argparse.ArgumentParser(description="Configure Telegram bot to open ARK LAB mini app")
   parser.add_argument("--skip-message", action="store_true", help="Do not send a launch message to the configured chat")
+  parser.add_argument("--public-url", default=PUBLIC_URL, help="Public https URL of the deployed app")
+  parser.add_argument("--chat-id", default=CHAT_ID, help="Telegram chat id to receive the launch message")
   args = parser.parse_args()
 
-  web_app_url = get_web_app_url()
+  web_app_url = get_web_app_url(args.public_url.strip())
   configure_menu(web_app_url)
   configure_commands()
   if not args.skip_message:
-    send_launch_message(web_app_url)
+    send_launch_message(web_app_url, args.chat_id.strip())
   print_summary(web_app_url)
 
 

@@ -6,8 +6,8 @@ const briefEndpoint = config.briefEndpoint || "/api/brief";
 const steps = [
   {
     id: "core",
-    title: "Что запускаем первым?",
-    description: "Выбери точку входа. Дальше app соберет сценарий, fit и rough estimate.",
+    title: "Какой формат нужен?",
+    description: "Выбери точку входа. Остальной контур app соберет сам.",
     options: [
       {
         id: "mini_app",
@@ -53,8 +53,8 @@ const steps = [
   },
   {
     id: "goal",
-    title: "Какой результат нужен?",
-    description: "Определи самый важный outcome первой версии, без попытки впихнуть все сразу.",
+    title: "Что должен дать первый релиз?",
+    description: "Один главный outcome, без лишнего распыления.",
     options: [
       {
         id: "leads",
@@ -100,8 +100,8 @@ const steps = [
   },
   {
     id: "module",
-    title: "Что критично в релизе?",
-    description: "Один сильный модуль на первый спринт. Остальное можно докрутить дальше.",
+    title: "Что критично внутри?",
+    description: "Выбери один сильный модуль. Остальное можно добрать следующим спринтом.",
     options: [
       {
         id: "ai",
@@ -147,8 +147,8 @@ const steps = [
   },
   {
     id: "mode",
-    title: "Как запускаем?",
-    description: "Выбери темп: компактный спринт, rush, growth path или чуть более глубокий релиз.",
+    title: "Какой темп нужен?",
+    description: "Определи темп запуска. Это влияет на сроки и глубину первого релиза.",
     options: [
       {
         id: "sprint",
@@ -202,6 +202,7 @@ const progressRail = document.getElementById("progressRail");
 const stepTitle = document.getElementById("stepTitle");
 const stepDescription = document.getElementById("stepDescription");
 const stepKicker = document.getElementById("stepKicker");
+const panelNote = document.getElementById("panelNote");
 const optionsGrid = document.getElementById("optionsGrid");
 const selectionPrimary = document.getElementById("selectionPrimary");
 const selectionSecondary = document.getElementById("selectionSecondary");
@@ -210,6 +211,11 @@ const estimateHint = document.getElementById("estimateHint");
 const caseMode = document.getElementById("caseMode");
 const caseTitle = document.getElementById("caseTitle");
 const caseList = document.getElementById("caseList");
+const livePreview = document.getElementById("livePreview");
+const previewTitle = document.getElementById("previewTitle");
+const previewNote = document.getElementById("previewNote");
+const previewChips = document.getElementById("previewChips");
+const insightGrid = document.getElementById("insightGrid");
 const stackChips = document.getElementById("stackChips");
 const stackNote = document.getElementById("stackNote");
 const resultCard = document.getElementById("resultCard");
@@ -227,6 +233,7 @@ const nextBtn = document.getElementById("nextBtn");
 const copyBriefBtn = document.getElementById("copyBriefBtn");
 const shareBriefBtn = document.getElementById("shareBriefBtn");
 const contactBtn = document.getElementById("contactBtn");
+let autoAdvanceTimer = null;
 
 function getSelected(step) {
   return steps[step].options[selections[step]];
@@ -470,6 +477,23 @@ function buildCTA() {
   return "Оставить задачу";
 }
 
+function buildPreviewTitle() {
+  const core = getSelected(0);
+  const goal = getSelected(1);
+  return `${core.title} под ${goal.subtitle}`;
+}
+
+function buildPreviewNote() {
+  const step = steps[Math.min(stepIndex, steps.length - 1)];
+  const notes = {
+    core: "Сначала выбираем формат. App уже держит в голове будущий stack и estimate.",
+    goal: "Теперь фиксируем результат первого релиза. Это сильнее влияет на UX, чем стек сам по себе.",
+    module: "Один модуль усиливает релиз сильнее всего. Не пытаемся впихнуть все сразу.",
+    mode: "Последний выбор: насколько жестко ускоряемся и сколько глубины берем в первый спринт.",
+  };
+  return notes[step.id] || "Контур решения и estimate собираются автоматически.";
+}
+
 function buildBriefText() {
   const core = getSelected(0);
   const goal = getSelected(1);
@@ -528,8 +552,20 @@ function renderOptions() {
       <span>${option.subtitle}</span>
     `;
     button.addEventListener("click", () => {
+      if (autoAdvanceTimer) {
+        window.clearTimeout(autoAdvanceTimer);
+      }
       selections[stepIndex] = index;
       render();
+      if (stepIndex < steps.length) {
+        autoAdvanceTimer = window.setTimeout(() => {
+          if (stepIndex < steps.length) {
+            stepIndex += 1;
+            renderState();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 140);
+      }
     });
     optionsGrid.appendChild(button);
   });
@@ -572,6 +608,16 @@ function renderSummary() {
     ? "Релиз чуть глубже по структуре, но все еще без раздувания."
     : "Первый спринт остается компактным и заточенным под результат.";
 
+  previewTitle.textContent = buildPreviewTitle();
+  previewNote.textContent = buildPreviewNote();
+  previewChips.innerHTML = "";
+  stack.slice(0, 4).forEach((item) => {
+    const chip = document.createElement("span");
+    chip.className = "stack-chip";
+    chip.textContent = item;
+    previewChips.appendChild(chip);
+  });
+
   resultSolution.textContent = buildSolution();
   resultFlow.textContent = buildFlow();
   resultTimeline.textContent = `${estimate.daysFrom}-${estimate.daysTo} дней`;
@@ -598,15 +644,19 @@ function renderState() {
     stepTitle.textContent = "Вот уже почти готовый pre-sale product";
     stepDescription.textContent = "Формат решения, fit, stack, estimate и brief собираются в одном потоке.";
     stepKicker.textContent = "RESULT";
+    panelNote.textContent = "review + send";
     optionsGrid.innerHTML = "";
   } else {
     const step = steps[stepIndex];
     stepTitle.textContent = step.title;
     stepDescription.textContent = step.description;
     stepKicker.textContent = `STEP ${String(stepIndex + 1).padStart(2, "0")}`;
+    panelNote.textContent = `1 tap -> ${stepIndex === steps.length - 1 ? "result" : "next step"}`;
     renderOptions();
   }
 
+  livePreview.classList.toggle("hidden", isResultStep);
+  insightGrid.classList.toggle("hidden", !isResultStep);
   resultCard.classList.toggle("hidden", !isResultStep);
   backBtn.disabled = stepIndex === 0;
   nextBtn.textContent = isResultStep ? "Новый разбор" : stepIndex === steps.length - 1 ? "Собрать контур" : "Дальше";
@@ -748,6 +798,9 @@ if (tg && tg.MainButton && typeof tg.MainButton.onClick === "function") {
 }
 
 backBtn.addEventListener("click", () => {
+  if (autoAdvanceTimer) {
+    window.clearTimeout(autoAdvanceTimer);
+  }
   if (stepIndex > 0) {
     stepIndex -= 1;
     renderState();
@@ -755,6 +808,9 @@ backBtn.addEventListener("click", () => {
 });
 
 nextBtn.addEventListener("click", () => {
+  if (autoAdvanceTimer) {
+    window.clearTimeout(autoAdvanceTimer);
+  }
   if (stepIndex < steps.length) {
     stepIndex += 1;
   } else {

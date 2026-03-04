@@ -53,12 +53,22 @@
         <section class="builder-panel card-light">
           <div class="panel-head">
             <span id="stepKicker" class="panel-kicker">STEP 01</span>
-            <span class="panel-note">tap to build</span>
+            <span id="panelNote" class="panel-note">tap to build</span>
           </div>
           <section id="optionsGrid" class="options-grid"></section>
         </section>
 
-        <section class="insight-grid">
+        <section id="livePreview" class="live-preview card-dark">
+          <div class="live-preview-head">
+            <span class="mini-chip">RECOMMENDED</span>
+            <span class="live-preview-meta">app assembles the rest</span>
+          </div>
+          <h2 id="previewTitle">Mini App под лиды и intake</h2>
+          <p id="previewNote">Сейчас нужен только следующий выбор. Контур решения и estimate собираются автоматически.</p>
+          <div id="previewChips" class="stack-chips"></div>
+        </section>
+
+        <section id="insightGrid" class="insight-grid hidden">
           <article class="insight-card card-light">
             <div class="insight-head">
               <span class="insight-kicker">FIT</span>
