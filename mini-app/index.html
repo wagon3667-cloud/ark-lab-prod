@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ARK LAB Mini App</title>
+  <meta
+    name="description"
+    content="ARK LAB Mini App builds a project brief, solution stack and rough estimate for Telegram products and AI automation."
+  />
+  <link rel="stylesheet" href="../shared.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="ark-surface ark-app-surface">
+  <div class="ambient ambient-orange"></div>
+  <div class="ambient ambient-blue"></div>
+
+  <div class="app-page">
+    <div class="app-shell">
+      <header class="app-header">
+        <a class="brand-badge" href="../index.html">
+          <span class="brand-core">ARK</span>
+          <span class="brand-tag">LAB</span>
+        </a>
+        <div class="app-header-meta">
+          <span class="app-mode-pill">Telegram Mini App</span>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <section class="app-hero card-dark">
+          <div class="hero-topline">
+            <span class="mini-chip">FLOW / BUILD</span>
+            <div id="progressRail" class="progress-rail" aria-label="Progress"></div>
+          </div>
+          <h1 id="stepTitle">Что запускаем первым?</h1>
+          <p id="stepDescription">Собираем продукт по слоям: точка входа, цель, модуль, режим и handoff.</p>
+        </section>
+
+        <section class="summary-grid">
+          <article class="summary-card summary-card-light">
+            <span class="summary-label">Проект</span>
+            <strong id="selectionPrimary">Mini App + Лиды</strong>
+            <span id="selectionSecondary">LLM, ответы, разбор, короткий спринт</span>
+          </article>
+          <article class="summary-card summary-card-green">
+            <span class="summary-label">Estimate</span>
+            <strong id="estimateLabel">85-130k</strong>
+            <span id="estimateHint">8-13 дней</span>
+          </article>
+        </section>
+
+        <section class="builder-panel card-light">
+          <div class="panel-head">
+            <span id="stepKicker" class="panel-kicker">STEP 01</span>
+            <span class="panel-note">tap to build</span>
+          </div>
+          <section id="optionsGrid" class="options-grid"></section>
+        </section>
+
+        <section class="insight-grid">
+          <article class="insight-card card-light">
+            <div class="insight-head">
+              <span class="insight-kicker">FIT</span>
+              <span id="caseMode" class="insight-meta">mini app / лиды</span>
+            </div>
+            <h2 id="caseTitle">Где это заходит лучше всего</h2>
+            <div id="caseList" class="case-list"></div>
+          </article>
+
+          <article class="insight-card card-accent">
+            <div class="insight-head">
+              <span class="insight-kicker">STACK</span>
+              <span class="insight-meta">first release</span>
+            </div>
+            <h2>Собираем в релиз</h2>
+            <div id="stackChips" class="stack-chips"></div>
+            <p id="stackNote" class="stack-note">Первый спринт остается компактным и заточенным под результат.</p>
+          </article>
+        </section>
+
+        <section id="resultCard" class="result-panel hidden">
+          <div class="result-head">
+            <span class="mini-chip mini-chip-dark">RESULT</span>
+            <span class="result-stage">готовый контур</span>
+          </div>
+
+          <div class="result-grid">
+            <article class="result-card result-card-light">
+              <span class="result-label">Формат решения</span>
+              <h2 id="resultSolution">Mini App + AI intake</h2>
+              <p id="resultFlow">Клиентский вход, квалификация и передача заявки в понятный канал.</p>
+            </article>
+
+            <article class="result-card result-card-dark">
+              <span class="result-label">Спринт</span>
+              <h2 id="resultTimeline">8-13 дней</h2>
+              <p id="resultBudget">85-130k</p>
+            </article>
+
+            <article class="result-card result-card-light">
+              <span class="result-label">В релиз входит</span>
+              <div id="resultModules" class="result-tags"></div>
+            </article>
+
+            <article class="result-card result-card-green">
+              <span class="result-label">Почему это зайдет</span>
+              <p id="resultFit">Клиент видит уровень прямо внутри интерактива, а не только в тексте.</p>
+            </article>
+          </div>
+
+          <article class="brief-panel card-accent">
+            <div class="panel-head">
+              <span class="panel-kicker">BRIEF</span>
+              <span class="panel-note">copy / share / send</span>
+            </div>
+            <h2 id="resultCTA">Оставить задачу</h2>
+            <textarea id="briefOutput" class="brief-output" readonly></textarea>
+            <div class="brief-actions">
+              <button id="copyBriefBtn" class="button button-dark" type="button">Скопировать brief</button>
+              <button id="shareBriefBtn" class="button button-ghost" type="button">Поделиться</button>
+              <button id="contactBtn" class="button button-ghost" type="button">Контакт</button>
+            </div>
+            <p id="deliveryNote" class="delivery-note">Если app открыт в Telegram WebApp, brief можно отправить в бот одной кнопкой.</p>
+          </article>
+        </section>
+      </main>
+
+      <footer class="sticky-actions">
+        <button id="backBtn" class="button button-ghost" type="button">Назад</button>
+        <button id="nextBtn" class="button button-accent" type="button">Дальше</button>
+      </footer>
+    </div>
+  </div>
+
+  <script src="../config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
