@@ -122,15 +122,21 @@
           <article class="brief-panel card-accent">
             <div class="panel-head">
               <span class="panel-kicker">BRIEF</span>
-              <span class="panel-note">copy / share / send</span>
+              <span class="panel-note">send to your Telegram</span>
             </div>
-            <h2 id="resultCTA">Оставить задачу</h2>
-            <textarea id="briefOutput" class="brief-output" readonly></textarea>
-            <div class="brief-actions">
-              <button id="copyBriefBtn" class="button button-dark" type="button">Скопировать brief</button>
-              <button id="shareBriefBtn" class="button button-ghost" type="button">Поделиться</button>
-              <button id="contactBtn" class="button button-ghost" type="button">Контакт</button>
+            <h2 id="resultCTA">Отправить разбор себе</h2>
+            <p id="deliveryPlan" class="delivery-plan">
+              После нажатия app отправит тебе в личку Telegram короткий бриф: что делать, зачем, сроки и rough estimate.
+            </p>
+            <div class="brief-actions brief-actions-primary">
+              <button id="sendBriefBtn" class="button button-dark" type="button">Отправить мне в личку</button>
+              <button id="newBriefBtn" class="button button-ghost" type="button">Новый разбор</button>
             </div>
+            <details class="brief-details">
+              <summary>Показать текст brief</summary>
+              <textarea id="briefOutput" class="brief-output" readonly></textarea>
+              <button id="copyBriefBtn" class="button button-ghost" type="button">Скопировать текст</button>
+            </details>
             <p id="deliveryNote" class="delivery-note">Если app открыт в Telegram WebApp, brief можно отправить в бот одной кнопкой.</p>
           </article>
         </section>

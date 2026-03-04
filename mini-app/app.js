@@ -226,14 +226,17 @@ const resultBudget = document.getElementById("resultBudget");
 const resultModules = document.getElementById("resultModules");
 const resultFit = document.getElementById("resultFit");
 const resultCTA = document.getElementById("resultCTA");
+const deliveryPlan = document.getElementById("deliveryPlan");
 const briefOutput = document.getElementById("briefOutput");
 const deliveryNote = document.getElementById("deliveryNote");
 const backBtn = document.getElementById("backBtn");
 const nextBtn = document.getElementById("nextBtn");
+const stickyActions = document.querySelector(".sticky-actions");
+const sendBriefBtn = document.getElementById("sendBriefBtn");
+const newBriefBtn = document.getElementById("newBriefBtn");
 const copyBriefBtn = document.getElementById("copyBriefBtn");
-const shareBriefBtn = document.getElementById("shareBriefBtn");
-const contactBtn = document.getElementById("contactBtn");
 let autoAdvanceTimer = null;
+let isSendingBrief = false;
 
 function getSelected(step) {
   return steps[step].options[selections[step]];
@@ -467,16 +470,6 @@ function buildFit() {
   return "Это выглядит как настоящий продукт, а не как обещание в переписке.";
 }
 
-function buildCTA() {
-  const goal = getSelected(1);
-  const mode = getSelected(3);
-
-  if (goal.id === "mvp") return "Получить MVP-plan";
-  if (goal.id === "ops") return "Разобрать процесс";
-  if (mode.id === "rush") return "Стартовать sprint";
-  return "Оставить задачу";
-}
-
 function buildPreviewTitle() {
   const core = getSelected(0);
   const goal = getSelected(1);
@@ -623,7 +616,8 @@ function renderSummary() {
   resultTimeline.textContent = `${estimate.daysFrom}-${estimate.daysTo} дней`;
   resultBudget.textContent = `${estimate.priceFrom}-${estimate.priceTo}k`;
   resultFit.textContent = buildFit();
-  resultCTA.textContent = buildCTA();
+  resultCTA.textContent = "Отправить разбор себе";
+  deliveryPlan.textContent = "После нажатия app отправит тебе в личку Telegram этот разбор: формат решения, rough estimate и краткий технический контур.";
   briefOutput.value = buildBriefText();
 
   resultModules.innerHTML = "";
@@ -658,6 +652,7 @@ function renderState() {
   livePreview.classList.toggle("hidden", isResultStep);
   insightGrid.classList.toggle("hidden", !isResultStep);
   resultCard.classList.toggle("hidden", !isResultStep);
+  stickyActions.classList.toggle("hidden", isResultStep);
   backBtn.disabled = stepIndex === 0;
   nextBtn.textContent = isResultStep ? "Новый разбор" : stepIndex === steps.length - 1 ? "Собрать контур" : "Дальше";
   updateTelegramUi(isResultStep);
@@ -676,26 +671,6 @@ async function copyBrief() {
   } catch (error) {
     window.alert(text);
   }
-}
-
-async function shareBrief() {
-  const text = briefOutput.value;
-  const shareUrl = window.location.href;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: `${config.brandName || "ARK LAB"} brief`,
-        text,
-        url: shareUrl,
-      });
-      return;
-    } catch (error) {
-      return;
-    }
-  }
-
-  await copyBrief();
 }
 
 function openContact() {
@@ -741,6 +716,14 @@ async function postBriefToBackend() {
 }
 
 async function sendBriefToTelegram() {
+  if (isSendingBrief) {
+    return;
+  }
+
+  isSendingBrief = true;
+  sendBriefBtn.disabled = true;
+  sendBriefBtn.textContent = "Отправляем...";
+
   const payload = {
     type: "ark_lab_brief",
     createdAt: new Date().toISOString(),
@@ -752,26 +735,33 @@ async function sendBriefToTelegram() {
   try {
     const posted = await postBriefToBackend();
     if (posted) {
-      deliveryNote.textContent = "Brief отправлен в Telegram chat.";
+      deliveryNote.textContent = "Готово. Разбор отправлен тебе в личку Telegram.";
+      sendBriefBtn.textContent = "Отправлено";
+      isSendingBrief = false;
       return;
     }
   } catch (error) {
-    deliveryNote.textContent = "Backend не ответил. Сработает fallback.";
+    deliveryNote.textContent = "Backend не ответил. Пробую Telegram fallback.";
   }
 
   if (tg && typeof tg.sendData === "function") {
     tg.sendData(JSON.stringify(payload));
-    deliveryNote.textContent = "Brief отправлен через Telegram WebApp sendData.";
+    deliveryNote.textContent = "Разбор отправлен через Telegram WebApp.";
+    sendBriefBtn.textContent = "Отправлено";
+    isSendingBrief = false;
     return;
   }
 
+  sendBriefBtn.disabled = false;
+  sendBriefBtn.textContent = "Отправить мне в личку";
+  isSendingBrief = false;
   openContact();
 }
 
 function updateTelegramUi(isResultStep) {
-  if (!tg || !tg.MainButton) {
+  if (!tg) {
     deliveryNote.textContent = apiBaseUrl || briefEndpoint
-      ? "При запуске через backend brief пойдет в Telegram chat."
+      ? "При нажатии разбор пойдет в твой Telegram chat через backend."
       : (config.contactHint || "Обнови контакты в config.js перед деплоем.");
     return;
   }
@@ -783,18 +773,13 @@ function updateTelegramUi(isResultStep) {
     tg.enableClosingConfirmation();
   }
 
-  if (isResultStep) {
-    tg.MainButton.setText("Отправить brief");
-    tg.MainButton.show();
-  } else {
+  if (tg.MainButton) {
     tg.MainButton.hide();
   }
 
-  deliveryNote.textContent = "Если mini app открыт через Telegram-бота, MainButton отправит brief напрямую в бот.";
-}
-
-if (tg && tg.MainButton && typeof tg.MainButton.onClick === "function") {
-  tg.MainButton.onClick(sendBriefToTelegram);
+  deliveryNote.textContent = isResultStep
+    ? "Нажми кнопку выше, и разбор уйдет тебе в личку Telegram."
+    : "Собери 4 выбора. В конце app отправит итог тебе в личку Telegram.";
 }
 
 backBtn.addEventListener("click", () => {
@@ -820,13 +805,17 @@ nextBtn.addEventListener("click", () => {
 });
 
 copyBriefBtn.addEventListener("click", copyBrief);
-shareBriefBtn.addEventListener("click", shareBrief);
-contactBtn.addEventListener("click", async () => {
-  if (stepIndex === steps.length) {
-    await sendBriefToTelegram();
-    return;
+sendBriefBtn.addEventListener("click", sendBriefToTelegram);
+newBriefBtn.addEventListener("click", () => {
+  if (autoAdvanceTimer) {
+    window.clearTimeout(autoAdvanceTimer);
   }
-  openContact();
+  stepIndex = 0;
+  sendBriefBtn.disabled = false;
+  sendBriefBtn.textContent = "Отправить мне в личку";
+  deliveryNote.textContent = "Собери 4 выбора. В конце app отправит итог тебе в личку Telegram.";
+  renderState();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 renderState();
