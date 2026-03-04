@@ -1,7 +1,7 @@
 const config = window.ARK_CONFIG || {};
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 const apiBaseUrl = (config.apiBaseUrl || "").replace(/\/$/, "");
-const briefEndpoint = config.briefEndpoint || "/api/brief";
+const leadEndpoint = config.leadEndpoint || config.briefEndpoint || "/api/lead";
 
 const steps = [
   {
@@ -227,16 +227,17 @@ const resultModules = document.getElementById("resultModules");
 const resultFit = document.getElementById("resultFit");
 const resultCTA = document.getElementById("resultCTA");
 const deliveryPlan = document.getElementById("deliveryPlan");
+const leadRequestInput = document.getElementById("leadRequestInput");
+const leadContactInput = document.getElementById("leadContactInput");
 const briefOutput = document.getElementById("briefOutput");
 const deliveryNote = document.getElementById("deliveryNote");
 const backBtn = document.getElementById("backBtn");
 const nextBtn = document.getElementById("nextBtn");
 const stickyActions = document.querySelector(".sticky-actions");
-const sendBriefBtn = document.getElementById("sendBriefBtn");
+const sendLeadBtn = document.getElementById("sendLeadBtn");
 const newBriefBtn = document.getElementById("newBriefBtn");
-const copyBriefBtn = document.getElementById("copyBriefBtn");
 let autoAdvanceTimer = null;
-let isSendingBrief = false;
+let isSubmittingLead = false;
 
 function getSelected(step) {
   return steps[step].options[selections[step]];
@@ -487,6 +488,28 @@ function buildPreviewNote() {
   return notes[step.id] || "Контур решения и estimate собираются автоматически.";
 }
 
+function getTelegramUser() {
+  if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) {
+    return null;
+  }
+
+  const user = tg.initDataUnsafe.user;
+  return {
+    id: user.id || null,
+    username: user.username ? `@${user.username}` : "",
+    first_name: user.first_name || "",
+    last_name: user.last_name || "",
+    language_code: user.language_code || "",
+  };
+}
+
+function buildClientLabel(user) {
+  if (!user) return "";
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+  if (fullName && user.username) return `${fullName} (${user.username})`;
+  return fullName || user.username || "";
+}
+
 function buildBriefText() {
   const core = getSelected(0);
   const goal = getSelected(1);
@@ -496,7 +519,7 @@ function buildBriefText() {
   const stack = buildStack();
 
   return [
-    `${config.brandName || "ARK LAB"} / incoming brief`,
+    `${config.brandName || "ARK LAB"} / lead preview`,
     "",
     `Точка входа: ${core.title} (${core.subtitle})`,
     `Цель: ${goal.title} (${goal.subtitle})`,
@@ -512,9 +535,9 @@ function buildBriefText() {
 }
 
 function getBriefUrl() {
-  if (!briefEndpoint) return "";
-  if (/^https?:\/\//.test(briefEndpoint)) return briefEndpoint;
-  return `${apiBaseUrl}${briefEndpoint}`;
+  if (!leadEndpoint) return "";
+  if (/^https?:\/\//.test(leadEndpoint)) return leadEndpoint;
+  return `${apiBaseUrl}${leadEndpoint}`;
 }
 
 function renderProgress() {
@@ -616,8 +639,8 @@ function renderSummary() {
   resultTimeline.textContent = `${estimate.daysFrom}-${estimate.daysTo} дней`;
   resultBudget.textContent = `${estimate.priceFrom}-${estimate.priceTo}k`;
   resultFit.textContent = buildFit();
-  resultCTA.textContent = "Отправить разбор себе";
-  deliveryPlan.textContent = "После нажатия app отправит тебе в личку Telegram этот разбор: формат решения, rough estimate и краткий технический контур.";
+  resultCTA.textContent = "Оставить заявку";
+  deliveryPlan.textContent = "Опишите задачу и оставьте контакт. Заявка уйдет напрямую в ARK LAB, а мы вернемся с ответом в Telegram.";
   briefOutput.value = buildBriefText();
 
   resultModules.innerHTML = "";
@@ -658,110 +681,88 @@ function renderState() {
   updateTelegramUi(isResultStep);
 }
 
-async function copyBrief() {
-  const text = briefOutput.value;
-  if (!text) return;
-
-  try {
-    await navigator.clipboard.writeText(text);
-    copyBriefBtn.textContent = "Скопировано";
-    window.setTimeout(() => {
-      copyBriefBtn.textContent = "Скопировать brief";
-    }, 1400);
-  } catch (error) {
-    window.alert(text);
-  }
-}
-
-function openContact() {
-  const contactUrl = config.telegramBotUrl && config.telegramBotUrl !== "#"
-    ? config.telegramBotUrl
-    : config.telegramProfileUrl && config.telegramProfileUrl !== "#"
-      ? config.telegramProfileUrl
-      : "";
-
-  if (tg && contactUrl) {
-    tg.openLink(contactUrl);
-    return;
-  }
-
-  if (contactUrl) {
-    window.open(contactUrl, "_blank", "noopener");
-    return;
-  }
-
-  window.alert(config.contactHint || "Заполни контакты в config.js");
-}
-
-async function postBriefToBackend() {
+async function postLeadToBackend() {
   const url = getBriefUrl();
   if (!url) return false;
+
+  const telegramUser = getTelegramUser();
+  const payload = {
+    type: "purchase_request",
+    solution: buildSolution(),
+    estimate: computeEstimate(),
+    source: tg ? "telegram-webapp" : "browser",
+    text: briefOutput.value,
+    requestText: leadRequestInput.value.trim(),
+    contact: leadContactInput.value.trim(),
+    telegramUser,
+    selections: {
+      core: getSelected(0),
+      goal: getSelected(1),
+      module: getSelected(2),
+      mode: getSelected(3),
+    },
+  };
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      solution: buildSolution(),
-      estimate: computeEstimate(),
-      source: tg ? "telegram-webapp" : "browser",
-      text: briefOutput.value,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);
   }
 
-  return true;
+  return response.json();
 }
 
-async function sendBriefToTelegram() {
-  if (isSendingBrief) {
+async function submitLead() {
+  if (isSubmittingLead) {
     return;
   }
 
-  isSendingBrief = true;
-  sendBriefBtn.disabled = true;
-  sendBriefBtn.textContent = "Отправляем...";
+  const requestText = leadRequestInput.value.trim();
+  const contactText = leadContactInput.value.trim();
+  const telegramUser = getTelegramUser();
 
-  const payload = {
-    type: "ark_lab_brief",
-    createdAt: new Date().toISOString(),
-    solution: buildSolution(),
-    estimate: computeEstimate(),
-    text: briefOutput.value,
-  };
+  if (!requestText) {
+    deliveryNote.textContent = "Нужно коротко описать задачу.";
+    leadRequestInput.focus();
+    return;
+  }
+
+  if (!contactText && !(telegramUser && telegramUser.username)) {
+    deliveryNote.textContent = "Добавь контакт для ответа: @telegram, телефон или email.";
+    leadContactInput.focus();
+    return;
+  }
+
+  isSubmittingLead = true;
+  sendLeadBtn.disabled = true;
+  sendLeadBtn.textContent = "Отправляем...";
 
   try {
-    const posted = await postBriefToBackend();
-    if (posted) {
-      deliveryNote.textContent = "Готово. Разбор отправлен тебе в личку Telegram.";
-      sendBriefBtn.textContent = "Отправлено";
-      isSendingBrief = false;
-      return;
-    }
-  } catch (error) {
-    deliveryNote.textContent = "Backend не ответил. Пробую Telegram fallback.";
-  }
-
-  if (tg && typeof tg.sendData === "function") {
-    tg.sendData(JSON.stringify(payload));
-    deliveryNote.textContent = "Разбор отправлен через Telegram WebApp.";
-    sendBriefBtn.textContent = "Отправлено";
-    isSendingBrief = false;
+    const response = await postLeadToBackend();
+    const leadId = response.leadId ? ` #${response.leadId}` : "";
+    deliveryNote.textContent = `Готово. Заявка${leadId} отправлена. Мы получили ее и вернемся с ответом.`;
+    sendLeadBtn.textContent = "Заявка отправлена";
+    leadRequestInput.disabled = true;
+    leadContactInput.disabled = true;
+    isSubmittingLead = false;
     return;
+  } catch (error) {
+    deliveryNote.textContent = "Не удалось отправить заявку. Попробуй еще раз.";
   }
 
-  sendBriefBtn.disabled = false;
-  sendBriefBtn.textContent = "Отправить мне в личку";
-  isSendingBrief = false;
-  openContact();
+  sendLeadBtn.disabled = false;
+  sendLeadBtn.textContent = "Отправить заявку";
+  isSubmittingLead = false;
 }
 
 function updateTelegramUi(isResultStep) {
   if (!tg) {
-    deliveryNote.textContent = apiBaseUrl || briefEndpoint
-      ? "При нажатии разбор пойдет в твой Telegram chat через backend."
+    deliveryNote.textContent = apiBaseUrl || leadEndpoint
+      ? "При нажатии заявка уйдет напрямую в ARK LAB через backend."
       : (config.contactHint || "Обнови контакты в config.js перед деплоем.");
     return;
   }
@@ -778,8 +779,8 @@ function updateTelegramUi(isResultStep) {
   }
 
   deliveryNote.textContent = isResultStep
-    ? "Нажми кнопку выше, и разбор уйдет тебе в личку Telegram."
-    : "Собери 4 выбора. В конце app отправит итог тебе в личку Telegram.";
+    ? "Заполните заявку ниже. Она уйдет напрямую в ARK LAB."
+    : "Пройдите 4 коротких шага. В конце app предложит оставить заявку.";
 }
 
 backBtn.addEventListener("click", () => {
@@ -804,18 +805,28 @@ nextBtn.addEventListener("click", () => {
   renderState();
 });
 
-copyBriefBtn.addEventListener("click", copyBrief);
-sendBriefBtn.addEventListener("click", sendBriefToTelegram);
+sendLeadBtn.addEventListener("click", submitLead);
 newBriefBtn.addEventListener("click", () => {
   if (autoAdvanceTimer) {
     window.clearTimeout(autoAdvanceTimer);
   }
   stepIndex = 0;
-  sendBriefBtn.disabled = false;
-  sendBriefBtn.textContent = "Отправить мне в личку";
-  deliveryNote.textContent = "Собери 4 выбора. В конце app отправит итог тебе в личку Telegram.";
+  isSubmittingLead = false;
+  sendLeadBtn.disabled = false;
+  sendLeadBtn.textContent = "Отправить заявку";
+  leadRequestInput.disabled = false;
+  leadContactInput.disabled = false;
+  leadRequestInput.value = "";
+  const telegramUser = getTelegramUser();
+  leadContactInput.value = telegramUser && telegramUser.username ? telegramUser.username : "";
+  deliveryNote.textContent = "Пройдите 4 коротких шага. В конце app предложит оставить заявку.";
   renderState();
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
+const initialTelegramUser = getTelegramUser();
+if (initialTelegramUser && initialTelegramUser.username) {
+  leadContactInput.value = initialTelegramUser.username;
+}
 
 renderState();

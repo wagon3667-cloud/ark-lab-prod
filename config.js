@@ -2,7 +2,7 @@ window.ARK_CONFIG = {
   brandName: "ARK LAB",
   miniAppPath: "./mini-app/",
   apiBaseUrl: "",
-  briefEndpoint: "/api/brief",
+  leadEndpoint: "/api/lead",
   telegramProfileUrl: "#",
   telegramBotUrl: "#",
   contactHandle: "",

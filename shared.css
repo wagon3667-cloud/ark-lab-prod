@@ -922,6 +922,37 @@ textarea {
   color: rgba(17, 17, 17, 0.82);
 }
 
+.field-group {
+  display: grid;
+  gap: 8px;
+}
+
+.field-group span {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text);
+  line-height: 1.38;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: rgba(17, 17, 17, 0.48);
+}
+
+.form-textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
 .brief-output {
   width: 100%;
   min-height: 220px;
@@ -957,6 +988,7 @@ textarea {
   cursor: pointer;
   font-size: 15px;
   font-weight: 900;
+  list-style: none;
 }
 
 .brief-details[open] summary {

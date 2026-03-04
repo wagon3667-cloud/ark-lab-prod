@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import mimetypes
 import os
@@ -13,6 +14,7 @@ from urllib.request import Request, urlopen
 
 BASE_DIR = Path(__file__).resolve().parent
 LEADS_DIR = BASE_DIR / "incoming"
+LEADS_CSV_PATH = LEADS_DIR / "leads.csv"
 LEADS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -36,11 +38,51 @@ CONTACT_HANDLE = os.getenv("ARK_LAB_CONTACT_HANDLE", "").strip()
 CONTACT_HINT = os.getenv("ARK_LAB_CONTACT_HINT", "").strip()
 
 
-def save_payload(payload: dict) -> Path:
-  timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-  path = LEADS_DIR / f"{timestamp}-{uuid.uuid4().hex[:8]}.json"
+def build_lead_id() -> str:
+  return uuid.uuid4().hex[:8].upper()
+
+
+def save_payload(payload: dict, lead_id: str, created_at: str) -> Path:
+  timestamp = created_at.replace(":", "").replace("-", "")
+  path = LEADS_DIR / f"{timestamp}-{lead_id.lower()}.json"
   path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
   return path
+
+
+def append_csv_row(payload: dict) -> None:
+  header = [
+    "lead_id",
+    "status",
+    "created_at",
+    "source",
+    "client_name",
+    "client_username",
+    "client_contact",
+    "solution",
+    "estimate_from",
+    "estimate_to",
+    "request_text",
+  ]
+  file_exists = LEADS_CSV_PATH.exists()
+  with LEADS_CSV_PATH.open("a", encoding="utf-8", newline="") as file:
+    writer = csv.DictWriter(file, fieldnames=header)
+    if not file_exists:
+      writer.writeheader()
+    writer.writerow(
+      {
+        "lead_id": payload.get("lead_id", ""),
+        "status": payload.get("status", ""),
+        "created_at": payload.get("created_at", ""),
+        "source": payload.get("source", ""),
+        "client_name": payload.get("client_name", ""),
+        "client_username": payload.get("client_username", ""),
+        "client_contact": payload.get("contact", ""),
+        "solution": payload.get("solution", ""),
+        "estimate_from": (payload.get("estimate") or {}).get("priceFrom", ""),
+        "estimate_to": (payload.get("estimate") or {}).get("priceTo", ""),
+        "request_text": payload.get("requestText", ""),
+      }
+    )
 
 
 def send_telegram_message(text: str) -> dict:
@@ -101,7 +143,7 @@ class ArkLabHandler(BaseHTTPRequestHandler):
   def do_POST(self) -> None:
     path = urlsplit(self.path).path
 
-    if path != "/api/brief":
+    if path not in {"/api/brief", "/api/lead"}:
       self.send_json(404, {"ok": False, "error": "Not found"})
       return
 
@@ -118,22 +160,58 @@ class ArkLabHandler(BaseHTTPRequestHandler):
       self.send_json(400, {"ok": False, "error": "Invalid JSON"})
       return
 
-    brief_text = str(payload.get("text", "")).strip()
-    if not brief_text:
-      self.send_json(400, {"ok": False, "error": "Brief text is required"})
+    request_text = str(payload.get("requestText", "")).strip()
+    if not request_text:
+      self.send_json(400, {"ok": False, "error": "Request text is required"})
       return
 
-    save_payload(payload)
-    message = "\n".join(
-      [
-        "ARK LAB / incoming brief",
-        "",
-        f"Source: {payload.get('source', 'mini-app')}",
-        f"Solution: {payload.get('solution', '-')}",
-        "",
-        brief_text,
-      ]
-    )
+    created_at = datetime.now(timezone.utc).isoformat()
+    lead_id = build_lead_id()
+    telegram_user = payload.get("telegramUser") or {}
+    client_name = " ".join(
+      part
+      for part in [telegram_user.get("first_name", ""), telegram_user.get("last_name", "")]
+      if part
+    ).strip()
+    client_username = str(telegram_user.get("username", "")).strip()
+    contact = str(payload.get("contact", "")).strip() or client_username
+
+    lead_payload = {
+      **payload,
+      "lead_id": lead_id,
+      "status": "new",
+      "created_at": created_at,
+      "client_name": client_name,
+      "client_username": client_username,
+      "contact": contact,
+    }
+
+    save_payload(lead_payload, lead_id, created_at)
+    append_csv_row(lead_payload)
+
+    estimate = payload.get("estimate") or {}
+    selections = payload.get("selections") or {}
+    summary_lines = [
+      f"Lead ID: {lead_id}",
+      f"Status: new",
+      f"Source: {payload.get('source', 'mini-app')}",
+      f"Client: {client_name or '-'}",
+      f"Telegram: {client_username or '-'}",
+      f"Contact: {contact or '-'}",
+      f"Telegram user id: {telegram_user.get('id', '-')}",
+      "",
+      "Запрос клиента:",
+      request_text,
+      "",
+      f"Формат решения: {payload.get('solution', '-')}",
+      f"Estimate: {estimate.get('priceFrom', '?')}-{estimate.get('priceTo', '?')}k / {estimate.get('daysFrom', '?')}-{estimate.get('daysTo', '?')} дней",
+      f"Core: {(selections.get('core') or {}).get('title', '-')}",
+      f"Goal: {(selections.get('goal') or {}).get('title', '-')}",
+      f"Module: {(selections.get('module') or {}).get('title', '-')}",
+      f"Mode: {(selections.get('mode') or {}).get('title', '-')}",
+    ]
+
+    message = "ARK LAB / new lead\n\n" + "\n".join(summary_lines)
 
     try:
       telegram_response = send_telegram_message(message)
@@ -141,7 +219,15 @@ class ArkLabHandler(BaseHTTPRequestHandler):
       self.send_json(502, {"ok": False, "error": f"Failed to send Telegram message: {exc}"})
       return
 
-    self.send_json(200, {"ok": True, "telegram": telegram_response.get("ok", False)})
+    self.send_json(
+      200,
+      {
+        "ok": True,
+        "telegram": telegram_response.get("ok", False),
+        "leadId": lead_id,
+        "status": "new",
+      },
+    )
 
   def serve_static(self, raw_path: str) -> None:
     request_path = unquote(raw_path)

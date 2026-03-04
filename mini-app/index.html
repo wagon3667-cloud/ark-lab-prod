@@ -121,23 +121,39 @@
 
           <article class="brief-panel card-accent">
             <div class="panel-head">
-              <span class="panel-kicker">BRIEF</span>
-              <span class="panel-note">send to your Telegram</span>
+              <span class="panel-kicker">LEAD</span>
+              <span class="panel-note">client request</span>
             </div>
-            <h2 id="resultCTA">Отправить разбор себе</h2>
+            <h2 id="resultCTA">Оставить заявку</h2>
             <p id="deliveryPlan" class="delivery-plan">
-              После нажатия app отправит тебе в личку Telegram короткий бриф: что делать, зачем, сроки и rough estimate.
+              Опишите задачу и оставьте контакт. Заявка уйдет напрямую в ARK LAB, а мы вернемся с ответом в Telegram.
             </p>
+            <label class="field-group" for="leadRequestInput">
+              <span>Что нужно сделать?</span>
+              <textarea
+                id="leadRequestInput"
+                class="form-textarea"
+                placeholder="Коротко опишите задачу: что нужно собрать, для кого, какие функции критичны, какие сроки."
+              ></textarea>
+            </label>
+            <label class="field-group" for="leadContactInput">
+              <span>Как с вами связаться?</span>
+              <input
+                id="leadContactInput"
+                class="form-input"
+                type="text"
+                placeholder="@telegram / телефон / email"
+              />
+            </label>
             <div class="brief-actions brief-actions-primary">
-              <button id="sendBriefBtn" class="button button-dark" type="button">Отправить мне в личку</button>
+              <button id="sendLeadBtn" class="button button-dark" type="button">Отправить заявку</button>
               <button id="newBriefBtn" class="button button-ghost" type="button">Новый разбор</button>
             </div>
             <details class="brief-details">
-              <summary>Показать текст brief</summary>
+              <summary>Что попадет в заявку</summary>
               <textarea id="briefOutput" class="brief-output" readonly></textarea>
-              <button id="copyBriefBtn" class="button button-ghost" type="button">Скопировать текст</button>
             </details>
-            <p id="deliveryNote" class="delivery-note">Если app открыт в Telegram WebApp, brief можно отправить в бот одной кнопкой.</p>
+            <p id="deliveryNote" class="delivery-note">После отправки заявка уйдет напрямую в ARK LAB.</p>
           </article>
         </section>
       </main>
